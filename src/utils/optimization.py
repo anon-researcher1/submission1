@@ -76,20 +76,20 @@ def unsupervised_train_step(model, data, criterions, device, arg_obj):
     predictions = model(frames)
     predictions = add_noise_to_constants(predictions)
     freqs, psd = torch_power_spectral_density(predictions, fps=fps, low_hz=low_hz, high_hz=high_hz, normalize=False, bandpass=False)
-    losses_dict = accumulate_augment_losses(freqs, psd, speed, criterions, device, arg_obj)
+    losses_dict = accumulate_unsupervised_losses(freqs, psd, speed, criterions, device, arg_obj)
     return losses_dict
 
 
-def accumulate_augment_losses(freqs, psd, speed, criterions, device, arg_obj):
+def accumulate_unsupervised_losses(freqs, psd, speed, criterions, device, arg_obj):
     criterions_str = arg_obj.losses
     low_hz = float(arg_obj.low_hz)
     high_hz = float(arg_obj.high_hz)
     total_loss = 0.0
     losses_dict = {}
     if 'b' in criterions_str:
-        bandpass_loss = criterions['bandpass'](freqs, psd, speed=speed, low_hz=low_hz, high_hz=high_hz, device=device)
-        total_loss += (arg_obj.bandpass_scalar*bandpass_loss)
-        losses_dict['bandpass'] = bandpass_loss
+        bandwidth_loss = criterions['bandwidth'](freqs, psd, speed=speed, low_hz=low_hz, high_hz=high_hz, device=device)
+        total_loss += (arg_obj.bandwidth_scalar*bandwidth_loss)
+        losses_dict['bandwidth'] = bandwidth_loss
     if 's' in criterions_str:
         sparsity_loss = criterions['sparsity'](freqs, psd, speed=speed, low_hz=low_hz, high_hz=high_hz, device=device)
         total_loss += (arg_obj.sparsity_scalar*sparsity_loss)
@@ -107,9 +107,9 @@ def accumulate_validation_losses(freqs, psd, criterions, device, arg_obj):
     total_loss = 0.0
     losses_dict = {}
     if 'b' in criterions_str:
-        bandpass_loss = criterions['bandpass'](freqs, psd, device=device)
-        total_loss = total_loss + (arg_obj.bandpass_scalar*bandpass_loss)
-        losses_dict['bandpass'] = bandpass_loss
+        bandwidth_loss = criterions['bandwidth'](freqs, psd, device=device)
+        total_loss = total_loss + (arg_obj.bandwidth_scalar*bandwidth_loss)
+        losses_dict['bandwidth'] = bandwidth_loss
     if 's' in criterions_str:
         sparsity_loss = criterions['sparsity'](freqs, psd, device=device)
         total_loss = total_loss + (arg_obj.sparsity_scalar*sparsity_loss)

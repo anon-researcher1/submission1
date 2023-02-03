@@ -54,7 +54,7 @@ def main():
     train_set = get_dataset('train', arg_obj)
     val_set = get_dataset('val', arg_obj)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=arg_obj.batch_size,
-                                               shuffle=arg_obj.shuffle, num_workers=arg_obj.num_workers)
+                                               shuffle=True, num_workers=arg_obj.num_workers)
 
     if bool(arg_obj.scheduler):
         optimizer = optim.SGD(model.parameters(), lr=arg_obj.lr, momentum=0.9)
@@ -73,7 +73,6 @@ def main():
     validation_step = select_validation_step(arg_obj)
 
     best_loss = np.inf
-    start_epoch = arg_obj.start_epoch
     if bool(arg_obj.continue_training):
         checkpoint_path, last_epoch = model_utils.get_last_checkpoint(save_root)
         if checkpoint_path is not None:
@@ -93,7 +92,7 @@ def main():
     start = time.time()
 
     global_i = 0
-    for epoch in range(start_epoch, arg_obj.end_epoch):
+    for epoch in range(arg_obj.epochs):
         model.train()
         model, optimizer, logger, global_i = optimization_loop(model, train_loader, optimizer, optimization_step, train_criterions, logger, global_i, epoch, device, arg_obj)
 

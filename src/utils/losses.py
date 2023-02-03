@@ -10,13 +10,11 @@ def select_loss(arg_obj):
     losses = arg_obj.losses
 
     criterion_funcs = {
-            'snr': SNR_SSL,
-            'snrharm': SNR_harmonic_SSL,
-            'ipr': irrelevant_power_ratio,
-            'normnp': normed_negpearson,
-            'psdmse': PSD_MSE,
-            'psdemd': PSD_EMD,
-            'emd': EMD_SSL,
+            'ipr': IPR_SSL, ## bandwidth loss
+            'snr': SNR_SSL, ## sparsity loss
+            'emd': EMD_SSL, ## variance loss
+            'snrharm': SNR_harmonic_SSL, ## sparsity with harmonics (not recommended)
+            'normnp': NP_SUPERVISED ## supervised negative pearson loss
     }
 
     criterions = {}
@@ -24,11 +22,11 @@ def select_loss(arg_obj):
         criterions['supervised'] = criterion_funcs[arg_obj.supervised_loss]
     elif losses == "supervised_priors":
         criterions['supervised'] = criterion_funcs[arg_obj.supervised_loss]
-        criterions['bandpass'] = criterion_funcs[arg_obj.bandpass_loss]
+        criterions['bandwidth'] = criterion_funcs[arg_obj.bandwidth_loss]
         criterions['sparsity'] = criterion_funcs[arg_obj.sparsity_loss]
     else:
         if 'b' in losses:
-            criterions['bandpass'] = criterion_funcs[arg_obj.bandpass_loss]
+            criterions['bandwidth'] = criterion_funcs[arg_obj.bandwidth_loss]
         if 's' in losses:
             criterions['sparsity'] = criterion_funcs[arg_obj.sparsity_loss]
         if 'v' in losses:
@@ -40,13 +38,11 @@ def select_loss(arg_obj):
 def select_validation_loss(arg_obj):
     validation_loss = arg_obj.validation_loss
     criterion_funcs = {
-            'snr': SNR_SSL,
-            'snrharm': SNR_harmonic_SSL,
-            'ipr': irrelevant_power_ratio,
-            'normnp': normed_negpearson,
-            'psdmse': PSD_MSE,
-            'psdemd': PSD_EMD,
-            'emd': EMD_SSL,
+            'ipr': IPR_SSL, ## bandwidth loss
+            'snr': SNR_SSL, ## sparsity loss
+            'emd': EMD_SSL, ## variance loss
+            'snrharm': SNR_harmonic_SSL, ## sparsity with harmonics (not recommended)
+            'normnp': NP_SUPERVISED ## supervised negative pearson loss
     }
 
     criterions = {}
@@ -54,17 +50,17 @@ def select_validation_loss(arg_obj):
         criterions['supervised'] = criterion_funcs[arg_obj.supervised_loss]
     elif validation_loss == "supervised_priors":
         criterions['supervised'] = criterion_funcs[arg_obj.supervised_loss]
-        criterions['bandpass'] = criterion_funcs[arg_obj.bandpass_loss]
+        criterions['bandwidth'] = criterion_funcs[arg_obj.bandwidth_loss]
         criterions['sparsity'] = criterion_funcs[arg_obj.sparsity_loss]
     else:
         if 'b' in validation_loss:
-            criterions['bandpass'] = criterion_funcs[arg_obj.bandpass_loss]
+            criterions['bandwidth'] = criterion_funcs[arg_obj.bandwidth_loss]
         if 's' in validation_loss:
             criterions['sparsity'] = criterion_funcs[arg_obj.sparsity_loss]
     return criterions
 
 
-def _irrelevant_power_ratio(freqs, psd, low_hz=BP_LOW, high_hz=BP_HIGH, device=None):
+def _IPR_SSL(freqs, psd, low_hz=BP_LOW, high_hz=BP_HIGH, device=None):
     use_freqs = torch.logical_and(freqs >= low_hz, freqs <= high_hz)
     zero_freqs = torch.logical_not(use_freqs)
     use_energy = torch.sum(psd[:,use_freqs], dim=1)
@@ -74,16 +70,16 @@ def _irrelevant_power_ratio(freqs, psd, low_hz=BP_LOW, high_hz=BP_HIGH, device=N
     return ipr_loss
 
 
-def irrelevant_power_ratio(freqs, psd, speed=None, low_hz=BP_LOW, high_hz=BP_HIGH, device=None):
+def IPR_SSL(freqs, psd, speed=None, low_hz=BP_LOW, high_hz=BP_HIGH, device=None):
     if speed is None:
-        ipr_loss = _irrelevant_power_ratio(freqs, psd, low_hz=low_hz, high_hz=high_hz, device=device)
+        ipr_loss = _IPR_SSL(freqs, psd, low_hz=low_hz, high_hz=high_hz, device=device)
     else:
         batch_size = psd.shape[0]
         ipr_losses = torch.ones((batch_size,1)).to(device)
         for b in range(batch_size):
             low_hz_b = low_hz * speed[b]
             high_hz_b = high_hz * speed[b]
-            ipr_losses[b] = _irrelevant_power_ratio(freqs, psd[b].view(1,-1), low_hz=low_hz_b, high_hz=high_hz_b, device=device)
+            ipr_losses[b] = _IPR_SSL(freqs, psd[b].view(1,-1), low_hz=low_hz_b, high_hz=high_hz_b, device=device)
         ipr_loss = torch.mean(ipr_losses)
     return ipr_loss
 
@@ -214,8 +210,8 @@ def SNR_harmonic_SSL(freqs, psd, speed=None, low_hz=BP_LOW, high_hz=BP_HIGH, fre
     return snr_loss
 
 
-def normed_negpearson(x, y, spectral1=None, spectral2=None):
-    ''' Same as negpearson, but the result is between 0 and 1.
+def NP_SUPERVISED(x, y, spectral1=None, spectral2=None):
+    ''' Same as negative pearson loss, but the result is between 0 and 1.
     '''
     if len(x.shape) < 2:
         x = torch.reshape(x, (1,-1))
